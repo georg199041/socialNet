@@ -2,6 +2,14 @@ module.exports = function(config, mongoose, nodemailer) {
 
 	var crypto = require('crypto');
 
+	var Status = new mongoose.Schema({
+		name: {
+			first:  { type: String },
+			last:  	{ type: String }
+		},
+		status:  	{ type: String }
+	});
+
 	var AccountSchema = new mongoose.Schema({
 		email:  { type: String, unique: true },
 		password:  { type: String },
@@ -15,7 +23,9 @@ module.exports = function(config, mongoose, nodemailer) {
 			year:  { type: Number }
 		},
 		photoUrl:  { type: String },
-		biography: { type: String }
+		biography: { type: String },
+		status:  [Status], // My own status updates only
+		activity:  [Status]  // All status updates including friends
 	});
 
 	var Account = mongoose.model('Account', AccountSchema);
@@ -60,6 +70,7 @@ module.exports = function(config, mongoose, nodemailer) {
 			}
 		});
 	};
+
 	var login = function(email, password, callback) {
 		var shaSum = crypto.createHash('sha256');
 		shaSum.update(password);
@@ -68,9 +79,16 @@ module.exports = function(config, mongoose, nodemailer) {
 		});
 	};
 
+	var findById = function(accountId, callback) {
+		Account.findOne({_id:accountId}, function(err,doc) {
+			callback(doc);
+		});
+	}
+
 	var register = function(email, password, firstName, lastName) {
 		var shaSum = crypto.createHash('sha256');
 		shaSum.update(password);
+
 		console.log('Registering ' + email);
 		var user = new Account({
 			email: email,
@@ -85,10 +103,24 @@ module.exports = function(config, mongoose, nodemailer) {
 	}
 
 	return {
+		findById: findById,
 		register: register,
 		forgotPassword: forgotPassword,
 		changePassword: changePassword,
 		login: login,
 		Account: Account
 	}
+
+	define(['models/StatusCollection'], function(StatusCollection) {
+		var Account = Backbone.Model.extend({
+			urlRoot: '/accounts',
+			initialize: function() {
+				this.status  = new StatusCollection();
+				this.status.url  = '/accounts/' + this.id + '/status';
+				this.activity  = new StatusCollection();
+				this.activity.url = '/accounts/' + this.id + '/activity';
+			}
+		});
+		return Account;
+	});
 }
